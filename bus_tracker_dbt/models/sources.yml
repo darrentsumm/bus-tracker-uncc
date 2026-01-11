@@ -1,0 +1,13 @@
+version: 2
+
+sources:
+  - name: raw_data
+    # In Neon/Postgres, the default database is usually 'neondb'
+    database: neondb
+    # The default schema where Python put your tables is 'public'
+    schema: public
+    
+    tables:
+      # Postgres tables are usually lowercase
+      - name: raw_routes
+      - name: raw_vehicles

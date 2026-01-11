@@ -1,0 +1,10 @@
+.env
+.DS_Store
+__pycache__/
+*.pyc
+*.csv
+logs/
+target/
+dbt_packages/
+package/
+*.zip
