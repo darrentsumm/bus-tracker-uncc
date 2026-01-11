@@ -33,14 +33,20 @@ jobs:
         # Add the python script to the zip
         zip -g deployment_package.zip upload_live.py
         
-    # --- THIS IS THE FIXED PART ---
+# ... (Top part of the file stays the same) ...
+
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: us-east-2  # <--- CHECK THIS: Is your Lambda in N. Virginia (us-east-1) or Ohio (us-east-2)?
+        aws-region: us-east-1
 
-    - name: Update Lambda Code
+    # --- NEW STRATEGY: S3 ---
+    - name: Deploy via S3
       run: |
-        aws lambda update-function-code --function-name uncc-bus-producer --zip-file fileb://deployment_package.zip
+        # 1. Upload the heavy zip file to your S3 bucket
+        aws s3 cp deployment_package.zip s3://uncc-bus-deploy-storage/deployment_package.zip
+        
+        # 2. Tell Lambda to go fetch it from the bucket
+        aws lambda update-function-code --function-name uncc-bus-producer --s3-bucket uncc-bus-deploy-storage --s3-key deployment_package.zip
