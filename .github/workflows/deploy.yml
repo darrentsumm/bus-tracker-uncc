@@ -40,7 +40,7 @@ jobs:
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: us-east-1
+        aws-region: us-east-2
 
     # --- NEW STRATEGY: S3 ---
     - name: Deploy via S3
@@ -49,4 +49,4 @@ jobs:
         aws s3 cp deployment_package.zip s3://uncc-bus-deploy-storage/deployment_package.zip
         
         # 2. Tell Lambda to go fetch it from the bucket
-        aws lambda update-function-code --function-name uncc-bus-producer --s3-bucket uncc-bus-deploy-storage --s3-key deployment_package.zip
+        aws lambda update-function-code --region us-east-2 --function-name uncc-bus-producer --s3-bucket uncc-bus-deploy-storage --s3-key deployment_package.zip
