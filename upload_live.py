@@ -1,67 +1,52 @@
-import os
-import time
+import urllib.request
+import json
 import pandas as pd
-import passiogo
+import os
 from sqlalchemy import create_engine
-from dotenv import load_dotenv
-
-# 1. Load Environment Variables
-load_dotenv()
-db_url = os.getenv("DATABASE_URL")
-
-if not db_url:
-    raise ValueError("DATABASE_URL not found in .env file")
-
-# 2. Connect to Neon (Postgres) using SQLAlchemy
-# This is much cleaner than the Snowflake connector!
-engine = create_engine(db_url)
-
-# Set the School ID (UNC Charlotte)
-SCHOOL_ID = 1053 
-
-def fetch_and_upload():
-    try:
-        # --- EXTRACT ---
-        system = passiogo.getSystemFromID(SCHOOL_ID)
-        vehicles = system.getVehicles()
-        
-        if not vehicles:
-            print("No active vehicles found.")
-            return
-
-        # Convert to DataFrame
-        # ... inside fetch_and_upload ...
-        vehicles_data = [vehicle.__dict__ for vehicle in vehicles]
-        df = pd.DataFrame(vehicles_data)
-        
-        # --- ADD THIS: Create the timestamp column ---
-        df['load_timestamp'] = pd.Timestamp.now()
-        
-        # ... rest of code (dropping system, to_sql) ...
-        
-        # Cleanup: Drop the 'system' column if it exists (it's an object we can't upload)
-        if 'system' in df.columns:
-            df = df.drop(columns=['system'])
-
-        # --- LOAD ---
-        # "if_exists='append'" adds new rows. 
-        # "index=False" ensures we don't upload the row numbers.
-        df.to_sql('raw_vehicles', engine, if_exists='append', index=False)
-        
-        print(f"Success: Uploaded {len(df)} rows to 'raw_vehicles' table.")
-
-    except Exception as e:
-        print(f"Error: {e}")
-
+from datetime import datetime
 
 def lambda_handler(event, context):
-    print("Lambda started...")
-    fetch_and_upload()
-    return {
-        'statusCode': 200,
-        'body': 'Bus data uploaded successfully!'
-    }
+    print("Fetching live vehicle data directly from API...")
+    
+    # Hit the Passio GO raw data feed for UNCC (System 1053)
+    url = "https://passiogo.com/mapGetData.php?getBuses=1&deviceId=0&system=1053"
+    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+    
+    try:
+        with urllib.request.urlopen(req) as response:
+            data = json.loads(response.read().decode())
+    except Exception as e:
+        print(f"API Error: {e}")
+        return
+        
+    # The API returns a dictionary of buses. Convert it to a list.
+    buses_dict = data.get("buses", {})
+    bus_list = list(buses_dict.values())
+    
+    if not bus_list:
+        print("No active vehicles found.")
+        return
+        
+    # Create DataFrame
+    df = pd.DataFrame(bus_list)
+    print(f"Found {len(df)} buses.")
+    
+    # Add timestamp
+    df['load_timestamp'] = datetime.utcnow()
+    
+    # Upload to Neon 
+    db_url = os.environ.get("DATABASE_URL")
+    if not db_url:
+        print("Error: DATABASE_URL environment variable is missing.")
+        return
+        
+    engine = create_engine(db_url)
+    
+    # Use 'append' so the new table grows over time
+    df.to_sql('raw_vehicles', engine, if_exists='append', index=False)
+    
+    print("Successfully built table and uploaded data.")
 
-# This allows you to still test it locally on your laptop
+# For local testing
 if __name__ == "__main__":
     lambda_handler(None, None)
