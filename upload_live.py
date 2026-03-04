@@ -28,7 +28,7 @@ def lambda_handler(event, context):
         return
         
     # Create DataFrame
-    df = pd.DataFrame(bus_list)
+    df = pd.json_normalize(bus_list)
     print(f"Found {len(df)} buses.")
     
     # Add timestamp
