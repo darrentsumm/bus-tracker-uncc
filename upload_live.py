@@ -19,9 +19,11 @@ def lambda_handler(event, context):
         print(f"API Error: {e}")
         return
         
-    # The API returns a dictionary of buses. Convert it to a list.
+    # The API returns a dictionary where values are lists containing a dict.
     buses_dict = data.get("buses", {})
-    bus_list = list(buses_dict.values())
+    
+    # Extract the actual dictionary (index 0) from each inner list
+    bus_list = [bus_array[0] for bus_array in buses_dict.values() if bus_array]
     
     if not bus_list:
         print("No active vehicles found.")
